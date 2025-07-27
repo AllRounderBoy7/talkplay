@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-gray-900 text-white flex flex-col h-screen">
+    <div id="usernamePrompt" class="flex flex-col items-center justify-center h-full">
+        <h1 class="text-2xl mb-4">Enter your username</h1>
+        <input id="usernameInput" class="text-black px-4 py-2 rounded" placeholder="Your name" />
+        <button id="joinBtn" class="mt-2 bg-blue-500 px-4 py-2 rounded">Join Chat</button>
+    </div>
+
+    <div id="chatUI" class="hidden flex flex-col h-full">
+        <div id="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+        <form id="messageForm" class="p-4 flex">
+            <input type="text" id="messageInput" class="flex-1 p-2 rounded text-black" placeholder="Type a message..." autocomplete="off" />
+            <button class="ml-2 px-4 py-2 bg-green-500 rounded">Send</button>
+        </form>
+        <div id="status" class="text-center text-gray-400 py-1">Offline</div>
+    </div>
+
+    <script>
+        const socket = io();
+        const usernamePrompt = document.getElementById('usernamePrompt');
+        const chatUI = document.getElementById('chatUI');
+        const chatContainer = document.getElementById('chatContainer');
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const usernameInput = document.getElementById('usernameInput');
+        const joinBtn = document.getElementById('joinBtn');
+        const status = document.getElementById('status');
+
+        let username = '';
+
+        joinBtn.onclick = () => {
+            username = usernameInput.value.trim() || "Guest";
+            socket.emit('joinChat', username);
+            usernamePrompt.classList.add('hidden');
+            chatUI.classList.remove('hidden');
+            status.textContent = "Online";
+        };
+
+        socket.on('message', (msg) => {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'bg-gray-800 p-2 rounded';
+            msgDiv.innerHTML = `<strong>${msg.user}:</strong> ${msg.text} <span class="text-sm text-gray-400">(${new Date(msg.timestamp).toLocaleTimeString()})</span>`;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+
+        socket.on('userJoined', (user) => {
+            const msg = document.createElement('div');
+            msg.className = 'text-green-400 text-sm';
+            msg.textContent = `${user} joined the chat.`;
+            chatContainer.appendChild(msg);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+
+        socket.on('userLeft', (user) => {
+            const msg = document.createElement('div');
+            msg.className = 'text-red-400 text-sm';
+            msg.textContent = `${user} left the chat.`;
+            chatContainer.appendChild(msg);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+
+        messageForm.onsubmit = (e) => {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            if (text) {
+                socket.emit('sendMessage', {
+                    text,
+                    timestamp: new Date().getTime()
+                });
+                messageInput.value = '';
+            }
+        };
+
+        socket.on('connect', () => {
+            status.textContent = "Online";
+        });
+
+        socket.on('disconnect', () => {
+            status.textContent = "Offline (reconnecting...)";
+        });
+    </script>
+</body>
+</html>
