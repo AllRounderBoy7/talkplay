@@ -1,29 +1,35 @@
 
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
 const path = require('path');
+const socketIO = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIO(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', (socket) => {
-    let username = '';
+    console.log('A user connected');
 
-    socket.on('joinChat', (name) => {
-        username = name || 'Guest';
+    socket.on('joinChat', (username) => {
+        socket.username = username;
         socket.broadcast.emit('userJoined', username);
     });
 
     socket.on('sendMessage', (msg) => {
-        io.emit('message', { ...msg, user: username });
+        io.emit('message', {
+            user: socket.username || 'Anonymous',
+            text: msg.text,
+            time: new Date().toLocaleTimeString()
+        });
     });
 
     socket.on('disconnect', () => {
-        if (username) io.emit('userLeft', username);
+        if (socket.username) {
+            io.emit('userLeft', socket.username);
+        }
     });
 });
 
